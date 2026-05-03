@@ -7,36 +7,48 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score, mean_squared_error
 
-st.set_page_config(page_title="Dropout AI", layout="wide")
+st.set_page_config(page_title="Dashboard Deserción", layout="wide")
 
 # ---------------------------
-# 🎨 ESTILO STARTUP
+# 🎨 ESTILO CLARO PROFESIONAL
 # ---------------------------
 st.markdown("""
 <style>
 body {
-    background-color: #0e1117;
-    color: white;
+    background-color: #f5f7fb;
+    color: #1f2937;
 }
 .block-container {
-    padding-top: 2rem;
+    padding: 2rem;
 }
 h1 {
-    color: #00c6ff;
+    color: #4f46e5;
 }
 .card {
-    background: #1c1f26;
+    background: white;
     padding: 20px;
     border-radius: 15px;
+    box-shadow: 0px 8px 20px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+}
+.stButton>button {
+    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    color: white;
+    border-radius: 10px;
+    height: 3em;
+    width: 100%;
+}
+section[data-testid="stSidebar"] {
+    background-color: #ffffff;
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🚀 Dropout AI")
-st.caption("Predicción inteligente de deserción universitaria")
+st.title("🎓 Dashboard de Riesgo de Deserción")
+st.caption("Análisis predictivo basado en Machine Learning")
 
 # ---------------------------
-# 📊 CARGA + LIMPIEZA
+# 📊 CARGA Y LIMPIEZA
 # ---------------------------
 @st.cache_data
 def cargar():
@@ -74,7 +86,7 @@ def cargar():
 df, features = cargar()
 
 # ---------------------------
-# 🤖 MODELO (MEJORADO)
+# 🤖 MODELO
 # ---------------------------
 @st.cache_resource
 def entrenar():
@@ -97,14 +109,14 @@ def entrenar():
 model, scaler, r2, mse = entrenar()
 
 # ---------------------------
-# 📊 DASHBOARD
+# 📊 MÉTRICAS
 # ---------------------------
 c1, c2 = st.columns(2)
 
 with c1:
     st.markdown(f"""
     <div class="card">
-        <h3>R²</h3>
+        <h3>📈 R² del modelo</h3>
         <h1>{r2:.3f}</h1>
     </div>
     """, unsafe_allow_html=True)
@@ -112,23 +124,28 @@ with c1:
 with c2:
     st.markdown(f"""
     <div class="card">
-        <h3>MSE</h3>
+        <h3>📉 Error (MSE)</h3>
         <h1>{mse:.3f}</h1>
     </div>
     """, unsafe_allow_html=True)
 
 # ---------------------------
-# 📈 IMPORTANCIA (INTERACTIVO)
+# 📈 GRÁFICO
 # ---------------------------
-importances = model.feature_importances_
+st.subheader("Factores que influyen en la deserción")
 
 fig = px.bar(
-    x=importances,
+    x=model.feature_importances_,
     y=features,
     orientation='h',
-    title="Factores que influyen en la deserción",
-    color=importances,
+    color=model.feature_importances_,
     color_continuous_scale='Blues'
+)
+
+fig.update_layout(
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    font_color='#1f2937'
 )
 
 st.plotly_chart(fig, use_container_width=True)
@@ -136,13 +153,13 @@ st.plotly_chart(fig, use_container_width=True)
 # ---------------------------
 # 🧾 INPUTS
 # ---------------------------
-st.subheader("📋 Evaluar estudiante")
+st.subheader("Evaluar estudiante")
 
 c1, c2, c3 = st.columns(3)
 
 with c1:
     edad = st.number_input("Edad", 0, 100, 18)
-    aprobados = st.number_input("Materias aprobadas", 0, 20, 5)
+    aprobados = st.number_input("Cursos aprobados", 0, 20, 5)
 
 with c2:
     nota = st.number_input("Promedio", 0.0, 20.0, 12.0)
@@ -150,13 +167,13 @@ with c2:
 
 with c3:
     beca = st.selectbox("Beca", ["No", "Sí"])
-    deudor = st.selectbox("Deudor", ["No", "Sí"])
+    deudor = st.selectbox("Deuda", ["No", "Sí"])
     pagos = st.selectbox("Pagos al día", ["No", "Sí"])
 
 # ---------------------------
 # 🔮 PREDICCIÓN
 # ---------------------------
-if st.button("🔍 Analizar riesgo"):
+if st.button("Calcular riesgo"):
 
     genero = 1 if genero == "Masculino" else 0
     mapa = {"Sí": 1, "No": 0}
@@ -171,27 +188,18 @@ if st.button("🔍 Analizar riesgo"):
     riesgo = model.predict(datos)[0]
     riesgo = max(0, min(1, riesgo))
 
-    st.subheader(f"🎯 Riesgo: {riesgo:.2%}")
+    st.markdown(f"""
+    <div class="card">
+        <h2>Resultado</h2>
+        <h1>{riesgo:.2%}</h1>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.progress(riesgo)
 
-    # ---------------------------
-    # 🧠 EXPLICACIÓN AUTOMÁTICA
-    # ---------------------------
-    st.subheader("🧠 Análisis del modelo")
-
-    if aprobados < 5:
-        st.write("⚠️ Pocas materias aprobadas → alto impacto en deserción")
-    if nota < 11:
-        st.write("⚠️ Bajo rendimiento académico")
-    if deudor == 1:
-        st.write("⚠️ Tiene deudas pendientes")
-    if pagos == 0:
-        st.write("⚠️ Pagos no actualizados")
-
     if riesgo > 0.7:
-        st.error("🔴 Alto riesgo")
+        st.error("Riesgo alto")
     elif riesgo > 0.4:
-        st.warning("🟡 Riesgo medio")
+        st.warning("Riesgo medio")
     else:
-        st.success("🟢 Riesgo bajo")
+        st.success("Riesgo bajo")
