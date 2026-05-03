@@ -1,88 +1,140 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score, mean_squared_error
 
-st.title("Predicción de Riesgo de Deserción Universitaria")
+st.set_page_config(page_title="Riesgo de Deserción", layout="wide")
+st.title("🎓 Predicción de Riesgo de Deserción Universitaria")
 
 # ---------------------------
-# CARGA DE DATOS
+# CARGA + LIMPIEZA
 # ---------------------------
 @st.cache_data
 def cargar_datos():
     df = pd.read_csv('dataset.csv', sep=';')
 
-    # Mapear variable target
+    # Mapear target
     target_map = {'Dropout': 1.0, 'Enrolled': 0.5, 'Graduate': 0.0}
     df['Target_Risk'] = df['Target'].map(target_map)
 
-    # Convertir columnas a numérico (evita errores)
-    columnas = ['Gender', 'Scholarship holder', 'Debtor', 'Tuition fees up to date']
-    for col in columnas:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
+    # Normalizar categorías comunes
+    df.replace({
+        'Male': 1, 'Female': 0,
+        'Yes': 1, 'No': 0
+    }, inplace=True)
 
-    # Eliminar nulos
-    df = df.fillna(0)
+    # 🔥 Arreglar columna con formato roto
+    col_grade = 'Curricular units 2nd sem (grade)'
+    df[col_grade] = df[col_grade].astype(str).str.replace('.', '', regex=False)
 
-    return df
+    # Columnas a usar
+    cols = [
+        'Age at enrollment',
+        'Curricular units 2nd sem (approved)',
+        col_grade,
+        'Gender',
+        'Scholarship holder',
+        'Debtor',
+        'Tuition fees up to date'
+    ]
 
-df = cargar_datos()
+    # Convertir a numérico
+    for c in cols:
+        df[c] = pd.to_numeric(df[c], errors='coerce')
 
-# ---------------------------
-# FEATURES
-# ---------------------------
-features = [
-    'Age at enrollment',
-    'Curricular units 2nd sem (approved)',
-    'Curricular units 2nd sem (grade)',
-    'Gender',
-    'Scholarship holder',
-    'Debtor',
-    'Tuition fees up to date'
-]
+    # Quitar filas inválidas
+    df = df.dropna(subset=cols + ['Target_Risk'])
 
-X = df[features]
-y = df['Target_Risk']
+    return df, cols
 
-# ---------------------------
-# ENTRENAMIENTO
-# ---------------------------
-X_train, X_test, y_train, y_test = train_test_split(X, y)
-
-scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-
-model = LinearRegression()
-model.fit(X_train_scaled, y_train)
+df, features = cargar_datos()
 
 # ---------------------------
-# INTERFAZ
+# ENTRENAMIENTO (cacheado)
 # ---------------------------
-st.header("Ingresa los datos del estudiante")
+@st.cache_resource
+def entrenar(df, features):
+    X = df[features]
+    y = df['Target_Risk']
 
-edad = st.number_input("Edad", min_value=0.0)
-aprobados = st.number_input("Materias aprobadas", min_value=0.0)
-nota = st.number_input("Promedio (0-20)", min_value=0.0, max_value=20.0)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
 
-genero = st.selectbox("Género", [0, 1])
-beca = st.selectbox("¿Tiene beca?", [0, 1])
-deudor = st.selectbox("¿Es deudor?", [0, 1])
-pagos = st.selectbox("¿Pagos al día?", [0, 1])
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+    model = LinearRegression()
+    model.fit(X_train_scaled, y_train)
+
+    # Métricas
+    y_pred = model.predict(X_test_scaled)
+    r2 = r2_score(y_test, y_pred)
+    mse = mean_squared_error(y_test, y_pred)
+
+    return model, scaler, r2, mse
+
+model, scaler, r2, mse = entrenar(df, features)
+
+# ---------------------------
+# DASHBOARD
+# ---------------------------
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader("📊 Métricas del modelo")
+    st.metric("R²", f"{r2:.3f}")
+    st.metric("MSE", f"{mse:.3f}")
+
+with col2:
+    st.subheader("📈 Importancia de variables")
+    coefs = model.coef_
+    fig, ax = plt.subplots()
+    ax.barh(features, coefs)
+    ax.set_xlabel("Peso")
+    ax.set_title("Coeficientes del modelo")
+    st.pyplot(fig)
+
+st.divider()
+
+# ---------------------------
+# INPUTS
+# ---------------------------
+st.subheader("🧾 Ingresar datos del estudiante")
+
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    edad = st.number_input("Edad", 0, 100, 18)
+    aprobados = st.number_input("Materias aprobadas", 0, 20, 5)
+
+with c2:
+    nota = st.number_input("Promedio (0-20)", 0.0, 20.0, 12.0)
+    genero = st.selectbox("Género", [0, 1])
+
+with c3:
+    beca = st.selectbox("Beca", [0, 1])
+    deudor = st.selectbox("Deudor", [0, 1])
+    pagos = st.selectbox("Pagos al día", [0, 1])
 
 # ---------------------------
 # PREDICCIÓN
 # ---------------------------
-if st.button("Calcular riesgo"):
-    datos = pd.DataFrame([[edad, aprobados, nota, genero, beca, deudor, pagos]], columns=features)
+if st.button("🚀 Calcular riesgo"):
+    datos = pd.DataFrame([[
+        edad, aprobados, nota, genero, beca, deudor, pagos
+    ]], columns=features)
 
     datos_scaled = scaler.transform(datos)
-
     riesgo = model.predict(datos_scaled)[0]
     riesgo = max(0, min(1, riesgo))
 
-    st.subheader(f"Probabilidad de deserción: {riesgo:.2%}")
+    st.subheader(f"🎯 Probabilidad de deserción: {riesgo:.2%}")
 
     if riesgo > 0.7:
         st.error("RIESGO ALTO")
