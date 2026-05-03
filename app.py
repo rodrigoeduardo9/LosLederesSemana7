@@ -17,21 +17,21 @@ st.title("🎓 Predicción de Riesgo de Deserción Universitaria")
 def cargar_datos():
     df = pd.read_csv('dataset.csv', sep=';')
 
-    # Mapear target
+    # Target
     target_map = {'Dropout': 1.0, 'Enrolled': 0.5, 'Graduate': 0.0}
     df['Target_Risk'] = df['Target'].map(target_map)
 
-    # Normalizar categorías comunes
+    # Convertir texto a números
     df.replace({
         'Male': 1, 'Female': 0,
         'Yes': 1, 'No': 0
     }, inplace=True)
 
-    # 🔥 Arreglar columna con formato roto
+    # Arreglar columna problemática
     col_grade = 'Curricular units 2nd sem (grade)'
     df[col_grade] = df[col_grade].astype(str).str.replace('.', '', regex=False)
 
-    # Columnas a usar
+    # Columnas
     cols = [
         'Age at enrollment',
         'Curricular units 2nd sem (approved)',
@@ -46,7 +46,7 @@ def cargar_datos():
     for c in cols:
         df[c] = pd.to_numeric(df[c], errors='coerce')
 
-    # Quitar filas inválidas
+    # Eliminar filas malas
     df = df.dropna(subset=cols + ['Target_Risk'])
 
     return df, cols
@@ -54,7 +54,7 @@ def cargar_datos():
 df, features = cargar_datos()
 
 # ---------------------------
-# ENTRENAMIENTO (cacheado)
+# ENTRENAMIENTO
 # ---------------------------
 @st.cache_resource
 def entrenar(df, features):
@@ -72,7 +72,6 @@ def entrenar(df, features):
     model = LinearRegression()
     model.fit(X_train_scaled, y_train)
 
-    # Métricas
     y_pred = model.predict(X_test_scaled)
     r2 = r2_score(y_test, y_pred)
     mse = mean_squared_error(y_test, y_pred)
@@ -82,7 +81,7 @@ def entrenar(df, features):
 model, scaler, r2, mse = entrenar(df, features)
 
 # ---------------------------
-# DASHBOARD
+# MÉTRICAS
 # ---------------------------
 col1, col2 = st.columns(2)
 
@@ -93,19 +92,17 @@ with col1:
 
 with col2:
     st.subheader("📈 Importancia de variables")
-    coefs = model.coef_
     fig, ax = plt.subplots()
-    ax.barh(features, coefs)
-    ax.set_xlabel("Peso")
-    ax.set_title("Coeficientes del modelo")
+    ax.barh(features, model.coef_)
+    ax.set_title("Coeficientes")
     st.pyplot(fig)
 
 st.divider()
 
 # ---------------------------
-# INPUTS
+# INPUTS (PRO)
 # ---------------------------
-st.subheader("🧾 Ingresar datos del estudiante")
+st.subheader("🧾 Datos del estudiante")
 
 c1, c2, c3 = st.columns(3)
 
@@ -115,19 +112,29 @@ with c1:
 
 with c2:
     nota = st.number_input("Promedio (0-20)", 0.0, 20.0, 12.0)
-    genero = st.selectbox("Género", [0, 1])
+    genero = st.selectbox("Género", ["Femenino", "Masculino"])
 
 with c3:
-    beca = st.selectbox("Beca", [0, 1])
-    deudor = st.selectbox("Deudor", [0, 1])
-    pagos = st.selectbox("Pagos al día", [0, 1])
+    beca = st.selectbox("¿Tiene beca?", ["No", "Sí"])
+    deudor = st.selectbox("¿Es deudor?", ["No", "Sí"])
+    pagos = st.selectbox("¿Pagos al día?", ["No", "Sí"])
 
 # ---------------------------
 # PREDICCIÓN
 # ---------------------------
 if st.button("🚀 Calcular riesgo"):
+
+    # Convertir a números
+    genero_num = 1 if genero == "Masculino" else 0
+
+    mapa = {"Sí": 1, "No": 0}
+    beca_num = mapa[beca]
+    deudor_num = mapa[deudor]
+    pagos_num = mapa[pagos]
+
     datos = pd.DataFrame([[
-        edad, aprobados, nota, genero, beca, deudor, pagos
+        edad, aprobados, nota,
+        genero_num, beca_num, deudor_num, pagos_num
     ]], columns=features)
 
     datos_scaled = scaler.transform(datos)
