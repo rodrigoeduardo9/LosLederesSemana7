@@ -10,7 +10,7 @@ from sklearn.metrics import r2_score, mean_squared_error
 st.set_page_config(page_title="Dashboard Deserción", layout="wide")
 
 # ---------------------------
-# 🎨 ESTILO CLARO PRO
+# 🎨 ESTILO
 # ---------------------------
 st.markdown("""
 <style>
@@ -38,19 +38,16 @@ st.caption("Sistema inteligente basado en Machine Learning")
 # ---------------------------
 # 📌 INFOGRAFÍA
 # ---------------------------
-st.subheader("📌 Resumen del sistema")
-
 c1, c2, c3 = st.columns(3)
-
 with c1:
-    st.markdown('<div class="card">📉 Problema: Alta deserción universitaria</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card">📉 Problema: Deserción universitaria</div>', unsafe_allow_html=True)
 with c2:
-    st.markdown('<div class="card">🧠 Solución: Modelo de IA predictivo</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card">🧠 IA: Predicción de riesgo</div>', unsafe_allow_html=True)
 with c3:
-    st.markdown('<div class="card">📊 Datos: Académicos + económicos</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card">📊 Datos académicos y económicos</div>', unsafe_allow_html=True)
 
 # ---------------------------
-# 📊 CARGA
+# 📊 CARGA SEGURA
 # ---------------------------
 @st.cache_data
 def cargar():
@@ -58,8 +55,12 @@ def cargar():
 
     df.replace({'Male':1,'Female':0,'Yes':1,'No':0}, inplace=True)
 
-    df['Curricular units 2nd sem (grade)'] = df['Curricular units 2nd sem (grade)']\
-        .astype(str).str.replace('.', '', regex=False)
+    # 🔥 limpiar columna problemática
+    df['Curricular units 2nd sem (grade)'] = (
+        df['Curricular units 2nd sem (grade)']
+        .astype(str)
+        .str.replace('.', '', regex=False)
+    )
 
     cols = [
         'Age at enrollment',
@@ -76,6 +77,7 @@ def cargar():
     })
 
     df = df.dropna()
+
     return df, cols
 
 df, features = cargar()
@@ -107,14 +109,13 @@ model, scaler, r2, mse = entrenar()
 # 📊 MÉTRICAS
 # ---------------------------
 c1, c2 = st.columns(2)
-
 with c1:
     st.markdown(f'<div class="card">📈 R²<br><h1>{r2:.3f}</h1></div>', unsafe_allow_html=True)
 with c2:
     st.markdown(f'<div class="card">📉 MSE<br><h1>{mse:.3f}</h1></div>', unsafe_allow_html=True)
 
 # ---------------------------
-# 📈 IMPORTANCIA
+# 📈 IMPORTANCIA (OK)
 # ---------------------------
 st.subheader("📈 Factores que influyen")
 
@@ -129,12 +130,22 @@ fig.update_layout(plot_bgcolor='white')
 st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------
-# 📊 DISTRIBUCIÓN
+# 📊 DISTRIBUCIÓN (ARREGLADO)
 # ---------------------------
-st.subheader("📊 Distribución del riesgo en dataset")
+st.subheader("📊 Distribución del riesgo")
 
-fig2 = px.histogram(df, x="Target_Risk", nbins=20, color="Target_Risk",
-                    color_continuous_scale="Blues")
+fig2 = px.histogram(
+    df,
+    x="Target_Risk",
+    nbins=20,
+    color_discrete_sequence=["#6366f1"]
+)
+
+fig2.update_layout(
+    plot_bgcolor='white',
+    paper_bgcolor='white'
+)
+
 st.plotly_chart(fig2, use_container_width=True)
 
 # ---------------------------
@@ -181,17 +192,16 @@ if st.button("Calcular riesgo"):
     st.markdown(f'<div class="card"><h2>{riesgo:.2%}</h2></div>', unsafe_allow_html=True)
     st.progress(riesgo)
 
-    # 🧠 EXPLICACIÓN AUTOMÁTICA
+    # explicación
     st.subheader("🧠 Interpretación")
-
     if aprobados < 5:
-        st.write("⚠️ Pocas materias aprobadas → alto riesgo")
+        st.write("⚠️ Pocas materias aprobadas")
     if nota < 11:
-        st.write("⚠️ Bajo rendimiento académico")
+        st.write("⚠️ Bajo rendimiento")
     if deudor == "Sí":
         st.write("⚠️ Tiene deudas")
     if pagos == "No":
-        st.write("⚠️ Pagos no actualizados")
+        st.write("⚠️ Pagos no al día")
 
     if riesgo > 0.7:
         st.error("Riesgo ALTO")
@@ -201,15 +211,15 @@ if st.button("Calcular riesgo"):
         st.success("Riesgo BAJO")
 
 # ---------------------------
-# 📊 INSIGHTS
+# 📊 CONCLUSIONES
 # ---------------------------
 st.subheader("📊 Conclusiones")
 
 c1, c2, c3 = st.columns(3)
 
 with c1:
-    st.markdown('<div class="card">📚 Rendimiento académico es clave</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card">📚 Rendimiento es clave</div>', unsafe_allow_html=True)
 with c2:
-    st.markdown('<div class="card">📉 Menos cursos → más abandono</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card">📉 Menos cursos → abandono</div>', unsafe_allow_html=True)
 with c3:
     st.markdown('<div class="card">💰 Economía influye</div>', unsafe_allow_html=True)
